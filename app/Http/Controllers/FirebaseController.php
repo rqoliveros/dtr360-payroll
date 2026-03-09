@@ -7,7 +7,8 @@ use App\Models\FirebaseUsers;
 use App\Models\FirebaseAttendance;
 use App\Models\FirebaseFilingDocuments;
 use App\Models\FirebaseHolidays;
-use Carbon;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use DateTime;
 use DatePeriod;
 use DateInterval;
@@ -43,13 +44,20 @@ class FirebaseController extends Controller
 
     public function getAttendanceByDateRange($dept,$startDate, $endDate)
     {   date_default_timezone_set('Asia/Manila');
+
+        $periods = CarbonPeriod::create(
+            Carbon::createFromFormat('Y-m-d', $startDate),
+            Carbon::createFromFormat('Y-m-d', $endDate)
+        );
+
+        $dates = [];
         $holidays = $this->getHolidays($startDate, $endDate);
         $employees = $this->getEmployees($dept);
         $docs = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'dateFrom');
         $ots = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'otDate');
         $departments = config('departments'); //fetch departments
         $startDate = strtotime($startDate) * 1000;
-        $endDate   = strtotime($endDate) * 1000;
+        $endDate   = strtotime($endDate  . ' +1 day') * 1000;
         $reference = $this->database->getReference('Logs');
         $query = $reference->orderByChild('dateTimeIn')    // 'date' is the key in your data
                         ->startAt($startDate)    // start of range
@@ -70,8 +78,35 @@ class FirebaseController extends Controller
         $uniqueEmployees = collect($firebaseAttendance) //get unique employees
         ->unique('employeeName')
         ->values();
+
+        $uniqueEmployeeIds = $uniqueEmployees->pluck('employeeID');
+
+        $missingEmployees = collect($employees)
+            ->filter(function ($emp) use ($uniqueEmployeeIds) {
+                return !$uniqueEmployeeIds->contains($emp->empId) && $emp->usertype != 'Former Employee';
+            })
+            ->values();
+        foreach($missingEmployees as $missings){
+            
+            $missingRow = new \stdClass();
+            $missingRow->id = null;
+            $missingRow->employeeID = $missings->empId;
+            $missingRow->employeeName = $missings->empName;
+            $missingRow->department = $missings->dept;
+            $missingRow->dateTimeIn = date('m/d/Y', $startDate / 1000);
+            $missingRow->day = date('l', $startDate / 1000);
+            $missingRow->timeIn = null;
+            $missingRow->timeOut = null;
+            $missingRow->remarks = 'Absent';
+
+            $firebaseAttendance[] = $missingRow;
+        }
+
+
+
         $shiftMap = [];
         foreach ($uniqueEmployees as $employeeName) {
+            //Leave
             if (!empty($employeeName->guid) && isset($docs[$employeeName->guid]) && $docs[$employeeName->guid]->docType == 'Leave') {
 
                 $leave = $docs[$employeeName->guid];
@@ -171,13 +206,7 @@ class FirebaseController extends Controller
             }
         }
 
-        usort($firebaseAttendance, function($a, $b) {
-            $nameComparison = strcmp($a->employeeName, $b->employeeName);
-            if ($nameComparison === 0) {
-                return $a->dateTimeIn <=> $b->dateTimeIn; // ascending
-            }
-            return $nameComparison;
-        });
+        
 
 
         // Compute Hours Worked and append date and compute lates
@@ -200,13 +229,13 @@ class FirebaseController extends Controller
 
                     if($timeIn > $shiftInTime){
                         $lateSeconds = $timeIn - $shiftInTime;
-                        $row->remarks .= " | Late (" . gmdate("H:i", $lateSeconds) . ")";
+                        $row->remarks .= " Late " . gmdate("i", $lateSeconds) . " mins";
                         $row->late = $lateSeconds;
                     }
 
                     if($timeOut < $shiftOutTime){
                         $utSeconds = $shiftOutTime - $timeOut;
-                        $row->remarks .= " | Undertime (" . gmdate("H:i", $utSeconds) . ")";
+                        $row->remarks .= " | Undertime " . gmdate("i", $utSeconds) . " mins";
                         $row->undertime = $utSeconds;
                     }
                 }
@@ -222,6 +251,78 @@ class FirebaseController extends Controller
 
             } 
         }
+
+        foreach ($uniqueEmployees as $employeeName) {
+            foreach ($periods as $period) {
+
+                $timestamp = $period->timestamp;
+                $date = $period->format('m/d/Y');
+                $dayofweek = strtolower($period->format('l'));
+                // find existing attendance row
+                $existingRow = collect($firebaseAttendance)->first(function ($row) use ($employeeName, $date) {
+                    return $row->employeeID == $employeeName->employeeID
+                        && $row->dateTimeIn == $date;
+                });
+                $currentShift = $employees[$row->employeeID]->$dayofweek;
+                if (!$existingRow && $currentShift == 1) {
+                    // merge remarks
+                    $missingRow = new \stdClass();
+                    $missingRow->id = null;
+                    $missingRow->employeeID = $employeeName->employeeID;
+                    $missingRow->employeeName = $employeeName->employeeName;
+                    $missingRow->department = $employeeName->department;
+                    $missingRow->dateTimeIn = $date;
+                    $missingRow->day = date('l', $timestamp);
+                    $missingRow->dateTimeInMs = $timestamp * 1000;
+                    $missingRow->timeIn = null;
+                    $missingRow->timeOut = null;
+                    $missingRow->remarks = 'Absent';
+
+                    $firebaseAttendance[] = $missingRow;
+
+                } 
+            }
+        }
+
+        foreach ($missingEmployees as $missings) {
+            foreach ($periods as $period) {
+
+                $timestamp = $period->timestamp;
+                $date = $period->format('m/d/Y');
+                $dayofweek = strtolower($period->format('l'));
+                // find existing attendance row
+                $existingRow = collect($firebaseAttendance)->first(function ($row) use ($missings, $date) {
+                    return $row->employeeID == $missings->empId
+                        && $row->dateTimeIn == $date;
+                });
+                $currentShift = $employees[$row->employeeID]->$dayofweek;
+                if (!$existingRow && $currentShift == 1) {
+                    // merge remarks
+                    $missingRow = new \stdClass();
+                    $missingRow->id = null;
+                    $missingRow->employeeID = $missings->empId;
+                    $missingRow->employeeName = $missings->empName;
+                    $missingRow->department = $missings->dept;
+                    $missingRow->dateTimeIn = $date;
+                    $missingRow->day = date('l', $timestamp);
+                    $missingRow->dateTimeInMs = $timestamp * 1000;
+                    $missingRow->timeIn = null;
+                    $missingRow->timeOut = null;
+                    $missingRow->remarks = 'Absent';
+
+                    $firebaseAttendance[] = $missingRow;
+
+                } 
+            }
+        }
+
+        usort($firebaseAttendance, function($a, $b) {
+            $nameComparison = strcmp($a->employeeName, $b->employeeName);
+            if ($nameComparison === 0) {
+                return $a->dateTimeIn <=> $b->dateTimeIn; // ascending
+            }
+            return $nameComparison;
+        });
 
         
         // return response()->json($firebaseAttendance);
