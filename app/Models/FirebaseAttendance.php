@@ -19,6 +19,7 @@ class FirebaseAttendance extends Model
     public $timeIn;
     public $timeOut;
     public $userType;
+    public $hoursWorked;
 
     public function __construct($id, $data)
     {

@@ -12,6 +12,7 @@ use Carbon\CarbonPeriod;
 use DateTime;
 use DatePeriod;
 use DateInterval;
+use Kreait\Firebase\Auth;
 
 class FirebaseController extends Controller
 {
@@ -96,6 +97,7 @@ class FirebaseController extends Controller
             $missingRow->dateTimeIn = date('m/d/Y', $startDate / 1000);
             $missingRow->day = date('l', $startDate / 1000);
             $missingRow->timeIn = null;
+            $missingRow->hoursWorked = 0.00;
             $missingRow->timeOut = null;
             $missingRow->remarks = 'Absent';
 
@@ -103,19 +105,19 @@ class FirebaseController extends Controller
         }
 
 
-
+        //SHIFT IDENTIFICATION
         $shiftMap = [];
         foreach ($uniqueEmployees as $employeeName) {
             //Leave
+            
             if (!empty($employeeName->guid) && isset($docs[$employeeName->guid]) && $docs[$employeeName->guid]->docType == 'Leave') {
-
                 $leave = $docs[$employeeName->guid];
                 $from = $leave->dateFrom;
                 $to = $leave->dateTo;
                 $start = new DateTime(substr($from, 0, 10)); // "2026-02-17"
                 $end   = new DateTime(substr($to, 0, 10));
+                $end->modify('+1 day');
                 $period = new DatePeriod($start, new DateInterval('P1D'), $end);
-                // dd($from);
                 foreach ($period as $date) {
                     $leaveRow = new \stdClass();
                     $leaveRow->id = null;
@@ -124,13 +126,13 @@ class FirebaseController extends Controller
                     $leaveRow->department = $employeeName->department;
                     $leaveRow->dateTimeIn = $date->format('m/d/Y');
                     $leaveRow->day = $date->format('l');
-                    $leaveRow->dateTimeInMs = $timestamp * 1000;
                     $leaveRow->timeIn = null;
                     $leaveRow->timeOut = null;
                     $leaveRow->remarks = $docs[$employeeName->guid]->leaveType;
                     $leaveRow->leave = $docs[$employeeName->guid]->leaveType;
 
                     $firebaseAttendance[] = $leaveRow;
+                    
                 }
                 
             }
@@ -195,7 +197,6 @@ class FirebaseController extends Controller
                     $holidayRow->department = $employeeName->department;
                     $holidayRow->dateTimeIn = $date;
                     $holidayRow->day = date('l', $timestamp);
-                    $holidayRow->dateTimeInMs = $timestamp * 1000;
                     $holidayRow->timeIn = null;
                     $holidayRow->timeOut = null;
                     $holidayRow->remarks = $holiday->holidayType;
@@ -273,9 +274,9 @@ class FirebaseController extends Controller
                     $missingRow->department = $employeeName->department;
                     $missingRow->dateTimeIn = $date;
                     $missingRow->day = date('l', $timestamp);
-                    $missingRow->dateTimeInMs = $timestamp * 1000;
                     $missingRow->timeIn = null;
                     $missingRow->timeOut = null;
+                    $missingRow->hoursWorked = 0.00;
                     $missingRow->remarks = 'Absent';
 
                     $firebaseAttendance[] = $missingRow;
@@ -305,9 +306,9 @@ class FirebaseController extends Controller
                     $missingRow->department = $missings->dept;
                     $missingRow->dateTimeIn = $date;
                     $missingRow->day = date('l', $timestamp);
-                    $missingRow->dateTimeInMs = $timestamp * 1000;
                     $missingRow->timeIn = null;
                     $missingRow->timeOut = null;
+                    $missingRow->hoursWorked = 0.00;
                     $missingRow->remarks = 'Absent';
 
                     $firebaseAttendance[] = $missingRow;
@@ -319,14 +320,32 @@ class FirebaseController extends Controller
         usort($firebaseAttendance, function($a, $b) {
             $nameComparison = strcmp($a->employeeName, $b->employeeName);
             if ($nameComparison === 0) {
-                return $a->dateTimeIn <=> $b->dateTimeIn; // ascending
+                // Convert to DateTime
+                $dateA = new DateTime($a->dateTimeIn);
+                $dateB = new DateTime($b->dateTimeIn);
+                return $dateA <=> $dateB; // ascending by actual date
             }
             return $nameComparison;
         });
+        $formatted = [];
 
+        foreach ($firebaseAttendance as $emp) {
+            $formatted[] = [
+                'employeeID' => $emp->employeeID,
+                'employeeName' => $emp->employeeName,
+                'department' => $emp->department,
+                'dateTimeIn' => $emp->dateTimeIn,
+                'day' => $emp->day,
+                'hoursWorked' => $emp->hoursWorked ?? 0.00,
+                'timeIn' => $emp->timeIn,
+                'timeOut' => $emp->timeOut,
+                'remarks' => $emp->remarks
+            ];
+        }
         
-        // return response()->json($firebaseAttendance);
-        return view('attendance.attendancetable', compact('firebaseAttendance'));
+        return response()->json($formatted);
+        // return view('payroll.payrolldashboard', compact('formatted'));
+        // return view('attendance.attendancetable', compact('firebaseAttendance'));
     }
 
     public function getHolidays($startDate, $endDate)
