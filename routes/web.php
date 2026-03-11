@@ -56,6 +56,15 @@ Route::prefix('payroll')
         Route::get('/dashboard', [PayrollController::class, 'dashboard'])
             ->name('dashboard');
 
+        // Payroll Approval
+        Route::get('/approval', [PayrollController::class, 'approval'])
+            ->name('approval');
+
+        // Approval Fetch
+        Route::get('/approval/{department}/{startDate}/{endDate}', 
+            [FirebaseController::class, 'getDocumentsByDepartment'])
+            ->name('approval.documents');
+
         // Attendance pages
         Route::get('/attendance/{department}/{startDate}/{endDate}', 
             [FirebaseController::class, 'getAttendanceByDateRange'])

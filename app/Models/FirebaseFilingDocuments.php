@@ -42,6 +42,7 @@ class FirebaseFilingDocuments extends Model
     public $otfrom;
     public $reason;
     public $uniqueId;
+    public $correctBothTime;
 
     public function __construct($id, $data)
     {
@@ -50,6 +51,7 @@ class FirebaseFilingDocuments extends Model
         $this->approveRejectDate     = $data['approveRejectDate'] ?? null;
         $this->attachmentName        = $data['attachmentName'] ?? null;
         $this->correctDate           = $data['correctDate'] ?? null;
+        $this->correctBothTime       = $data['correctBothTime'] ?? null;
         $this->correctTime           = $data['correctTime'] ?? null;
         $this->date                  = $data['date'] ?? null;
         $this->dateFrom              = $data['dateFrom'] ?? null;

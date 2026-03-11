@@ -128,7 +128,7 @@ class FirebaseController extends Controller
                     $leaveRow->day = $date->format('l');
                     $leaveRow->timeIn = null;
                     $leaveRow->timeOut = null;
-                    $leaveRow->remarks = $docs[$employeeName->guid]->leaveType;
+                    $leaveRow->remarks = $docs[$employeeName->guid]->isApproved == true ? $docs[$employeeName->guid]->leaveType : 'Pending: ' . $docs[$employeeName->guid]->leaveType;
                     $leaveRow->leave = $docs[$employeeName->guid]->leaveType;
 
                     $firebaseAttendance[] = $leaveRow;
@@ -150,13 +150,13 @@ class FirebaseController extends Controller
                     // merge remarks
                     if (!empty($existingRow->remarks)) {
                         if (!str_contains($existingRow->remarks, $holiday->holidayType)) {
-                            $existingRow->remarks .= ' | ' . $ot->otType . ': ' . $ot->hoursNo;
+                            $existingRow->remarks .= $ot->isApproved == true ? ' | ' . $ot->otType . ': ' . $ot->hoursNo : ' | Pending' . $ot->otType . ': ' . $ot->hoursNo;
                             $existingRow->otType = $ot->otType;
                             $existingRow->otHours = $ot->hoursNo;
                             
                         }
                     } else {
-                        $existingRow->remarks = $ot->otType . ': ' . $ot->hoursNo;
+                        $existingRow->remarks = $ot->isApproved == true ? $ot->otType . ': ' . $ot->hoursNo : 'Pending: ' . $ot->otType . ': ' . $ot->hoursNo;
                         $existingRow->otType = $ot->otType;
                         $existingRow->otHours = $ot->hoursNo;
                     }
@@ -219,25 +219,34 @@ class FirebaseController extends Controller
                 $dayOfWeek = strtolower(date('l', strtotime($row->dateTimeIn)));
                 $currentShift = $employees[$row->employeeID]->$dayOfWeek;
                 if(isset($employees[$row->employeeID]) && $currentShift == 1){
-
+                    
+                    $date = date('Y-m-d', strtotime($row->dateTimeIn));
                     $shiftIn  = $employees[$row->employeeID]->shiftTimeIn;
                     $shiftOut = $employees[$row->employeeID]->shiftTimeOut;
+
                     $shiftInTime  = strtotime($row->dateTimeIn . ' ' . $shiftIn);
-                    $shiftOutTime = strtotime($row->dateTimeIn . ' ' . $shiftOut);
-                    
+                    $shiftOutTime = strtotime($date . ' ' . $shiftOut);
+
                     $timeIn  = strtotime($row->timeIn);
                     $timeOut = strtotime($row->timeOut);
-
-                    if($timeIn > $shiftInTime){
+                    
+                    if ($timeIn > $shiftInTime) {
                         $lateSeconds = $timeIn - $shiftInTime;
-                        $row->remarks .= " Late " . gmdate("i", $lateSeconds) . " mins";
-                        $row->late = $lateSeconds;
-                    }
+                        $lateMinutes = floor($lateSeconds / 60);
 
-                    if($timeOut < $shiftOutTime){
+                        $row->remarks .= " Late {$lateMinutes} mins";
+                        $row->late = $lateMinutes;
+                    }
+                    // if($employees[$row->employeeID]->empName == 'Prince L. Torres' && $row->timeOut == "03/04/2026 04:35 PM"){
+                    //     dd($timeOut . ' ' . $shiftOutTime);
+                    // }
+                    if ($timeOut < $shiftOutTime) {
                         $utSeconds = $shiftOutTime - $timeOut;
-                        $row->remarks .= " | Undertime " . gmdate("i", $utSeconds) . " mins";
-                        $row->undertime = $utSeconds;
+                        $utMinutes = floor($utSeconds / 60);
+
+                        $row->remarks .= " | Undertime {$utMinutes} mins";
+                        $row->undertime = $utMinutes;
+                        
                     }
                 }
 
@@ -331,6 +340,7 @@ class FirebaseController extends Controller
 
         foreach ($firebaseAttendance as $emp) {
             $formatted[] = [
+                'id' => $emp->id,
                 'employeeID' => $emp->employeeID,
                 'employeeName' => $emp->employeeName,
                 'department' => $emp->department,
@@ -339,13 +349,70 @@ class FirebaseController extends Controller
                 'hoursWorked' => $emp->hoursWorked ?? 0.00,
                 'timeIn' => $emp->timeIn,
                 'timeOut' => $emp->timeOut,
-                'remarks' => $emp->remarks
+                'remarks' => $emp->remarks,
+                'undertime' => $emp->undertime ?? 0.00,
+                'late' => $emp->late ?? 0.00
             ];
         }
         
         return response()->json($formatted);
         // return view('payroll.payrolldashboard', compact('formatted'));
         // return view('attendance.attendancetable', compact('firebaseAttendance'));
+    }
+
+    public function getDocumentsByDepartment($dept,$startDate, $endDate){
+        $reference = $this->database->getReference('FilingDocuments');
+        $query = $reference->orderByChild('date')    // 'date' is the key in your data
+                        ->startAt($startDate)    // start of range
+                        ->endAt($endDate);       // end of range
+
+        $docs = $query->getValue();
+
+        $firebaseDocs = [];
+
+        if ($docs) {
+            foreach ($docs as $id => $data) {
+                if(str_contains($data['dept'], $dept)  && $data['isApproved'] == 'Pending'){
+                    $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
+                }
+            }
+        }
+
+        foreach ($firebaseDocs as $emp) {
+            $formatted[] = [
+                'id' => $emp->id,
+                'employeeName' => $emp->employeeName,
+                'guid' => $emp->guid ?? null,
+                'dept' => $emp->dept ?? null,
+                'date' => $emp->date ?? null,
+                'dateFrom' => $emp->dateFrom ?? null,
+                'dateTo' => $emp->dateTo ?? null,
+                'docType' => $emp->docType ?? null,
+                'correctDate' => $emp->correctDate ?? null,
+                'correctTime' => $emp->correctTime ?? null,
+                'correctBothTime' => $emp->correctBothTime ?? null,
+                'deductLeave' => $emp->remarks ?? null,
+                'empKey' => $emp->empKey ?? null,
+                'hoursNo' => $emp->hoursNo ?? 0.00,
+                'isAm' => $emp->isAm ?? null,
+                'isApproved' => $emp->isApproved ?? null,
+                'isHalfday' => $emp->isHalfday ?? null,
+                'isNextdayTimeOut' => $emp->isNextdayTimeOut ?? null,
+                'isOut' => $emp->isOut ?? null,
+                'isOvernightOt' => $emp->isOvernightOt ?? null,
+                'leaveType' => $emp->leaveType ?? null,
+                'noOfDay' => $emp->noOfDay ?? null,
+                'otDate' => $emp->otDate ?? null,
+                'otTo' => $emp->otTo ?? null,
+                'otType' => $emp->otType ?? null,
+                'otfrom' => $emp->otfrom ?? null,
+                'reason' => $emp->reason ?? null,
+                'uniqueId' => $emp->uniqueId ?? null
+            ];
+        }
+        
+        return response()->json($formatted);
+        // return $firebaseDocs;
     }
 
     public function getHolidays($startDate, $endDate)

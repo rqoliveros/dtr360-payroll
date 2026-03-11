@@ -163,7 +163,7 @@
                         {
                             data:null,
                             render:function(){
-                                return `<button class="text-blue-500">View</button>`;
+                                return `<button class="text-blue-500">Edit</button>`;
                             }
                         }
                     ]

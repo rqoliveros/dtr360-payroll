@@ -20,6 +20,10 @@ class PayrollController extends Controller
         return view('payroll.payrolldashboard');
     }
 
+    public function approval(){
+        return view('payroll.payrollapproval');
+    }
+
     public function getAllEmployees()
     {
         $users = $this->database
