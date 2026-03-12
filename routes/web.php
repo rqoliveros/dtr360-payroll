@@ -65,6 +65,21 @@ Route::prefix('payroll')
             [FirebaseController::class, 'getDocumentsByDepartment'])
             ->name('approval.documents');
 
+        // Approve Documents
+        Route::post('/approve-documents', 
+            [PayrollController::class, 'approveDocuments'])
+            ->name('approval.documents');
+
+        // Approve Documents
+        Route::post('/reject-document', 
+            [PayrollController::class, 'rejectDocument'])
+            ->name('reject.document');
+
+        // Approve Documents
+        Route::post('/approve-document', 
+            [PayrollController::class, 'approveDocument'])
+            ->name('approval.document');
+
         // Attendance pages
         Route::get('/attendance/{department}/{startDate}/{endDate}', 
             [FirebaseController::class, 'getAttendanceByDateRange'])

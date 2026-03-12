@@ -27,9 +27,9 @@ class FirebaseAuthMiddleware
         $employees = app()->make(\App\Http\Controllers\PayrollController::class)->getAllEmployees();
 
         $user = collect($employees)->firstWhere('email', $email);
-
+        
         if ($user) {
-            View::share('authUser', $user);
+            View::share('authUser', $user->empName);
             View::share('dept', $user->dept);
             View::share('usertype', $user->usertype);
         }

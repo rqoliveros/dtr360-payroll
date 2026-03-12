@@ -372,7 +372,7 @@ class FirebaseController extends Controller
 
         if ($docs) {
             foreach ($docs as $id => $data) {
-                if(str_contains($data['dept'], $dept)  && $data['isApproved'] == 'Pending'){
+                if(str_contains($data['dept'], $dept)  && $data['isApproved'] == false && $data['docType'] != '' && $data['approveRejectBy'] == ''){
                     $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
                 }
             }

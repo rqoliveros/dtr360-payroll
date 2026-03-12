@@ -11,6 +11,7 @@ class FirebaseFilingDocuments extends Model
     public $id;
     public $approveRejectBy;
     public $approveRejectDate;
+    public $approveRejectReason;
     public $attachmentName;
     public $correctDate;
     public $correctTime;
@@ -48,6 +49,7 @@ class FirebaseFilingDocuments extends Model
     {
         $this->id = $id;
         $this->approveRejectBy       = $data['approveRejectBy'] ?? null;
+        $this->approveRejectReason   = $data['approveRejectReason'] ?? null;
         $this->approveRejectDate     = $data['approveRejectDate'] ?? null;
         $this->attachmentName        = $data['attachmentName'] ?? null;
         $this->correctDate           = $data['correctDate'] ?? null;

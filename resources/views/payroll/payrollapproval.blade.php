@@ -121,15 +121,22 @@
                         <div id="modalExtraDetails"></div>
 
                         </div>
-                        <div class="modal-footer">
+                        <div class="modal-footer flex flex-col items-start gap-2">
 
-                            <button id="rejectDoc" class="btn btn-danger">
-                                Reject
-                            </button>
+                            <div id="rejectReasonContainer" class="w-full hidden">
+                                <label class="text-sm font-medium">Reject Reason</label>
+                                <textarea id="rejectReason" class="form-control" rows="3"></textarea>
+                            </div>
 
-                            <button id="approveDoc" class="btn btn-success">
-                                Approve
-                            </button>
+                            <div class="flex gap-2 w-full justify-end">
+                                <button id="rejectDoc" class="btn btn-danger">
+                                    Reject
+                                </button>
+
+                                <button id="approveDoc" class="btn btn-success">
+                                    Approve
+                                </button>
+                            </div>
 
                         </div>
 
@@ -147,11 +154,13 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script>
         const userDept = "{{ $dept }}";
+        const email = "{{ $authUser }}";
     </script>
     <script>
-
+        
         $(document).ready(function () {
-
+            let currentDocId = null;
+            let empKey = null;
             const dept = "{{ $dept }}";
             const baseUrl = "{{ url('/payroll/approval') }}";
 
@@ -279,7 +288,8 @@
                     selected.push(row);
 
                 });
-                alert(selected);
+                alert(selected[0]);
+                console.log(selected[0]);
                 if(selected.length === 0){
                     alert("No documents selected");
                     return;
@@ -287,9 +297,9 @@
                 else{
                     alert(selected.length);
                 }
-
+                const baseUrl = "{{ url('/payroll') }}";
                 $.ajax({
-                    url: '/payroll/approve-documents',
+                    url: `${baseUrl}/approve-documents`,
                     method: 'POST',
                     data:{
                         ids: Array.from(selected),
@@ -310,7 +320,8 @@
             $('#documentTable').on('click', '.viewBtn', function(){
 
                 let data = table.row($(this).closest('tr')).data();
-
+                currentDocId = data.id;
+                empKey = data.empKey;
                 $('#modalEmployee').text(data.employeeName);
                 $('#modalDocType').text(data.docType);
                 $('#modalUniqueId').text(data.uniqueId);
@@ -363,6 +374,79 @@
                 modal.show();
 
             });
+            $('#approveDoc').click(function(){
+                if(!currentDocId) return;
+
+                if(!confirm("Are you sure you want to approve this document?")){
+                    return;
+                }
+                const baseUrl = "{{ url('/payroll') }}";
+                $.ajax({
+                    url: `${baseUrl}/approve-document`,
+                    method: 'POST',
+                    data:{
+                        id: currentDocId,
+                        approver: email,
+                        empKey: empKey,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success:function(){
+
+                        alert("Document Approved");
+
+                        table.ajax.reload(null,false);
+
+                        bootstrap.Modal.getInstance(document.getElementById('viewModal')).hide();
+
+                    }
+                });
+
+            });
+            let rejectMode = false;
+
+            $('#rejectDoc').click(function(){
+
+                if(!rejectMode){
+
+                    $('#rejectReasonContainer').removeClass('hidden');
+                    rejectMode = true;
+
+                    return;
+
+                }
+                let reason = $('#rejectReason').val();
+
+                if(!reason){
+                    alert("Please enter a reject reason");
+                    return;
+                }
+                const baseUrl = "{{ url('/payroll') }}";
+                $.ajax({
+                    url: `${baseUrl}/reject-document`,
+                    method:'POST',
+                    data:{
+                        id: currentDocId,
+                        approver: email,
+                        reason: reason,
+                        _token:'{{ csrf_token() }}'
+                    },
+                    success:function(){
+
+                        alert("Document Rejected");
+
+                        $('#rejectReason').val('');
+                        $('#rejectReasonContainer').addClass('hidden');
+                        rejectMode = false;
+
+                        table.ajax.reload(null,false);
+
+                        bootstrap.Modal.getInstance(document.getElementById('viewModal')).hide();
+
+                    }
+                });
+
+            });
+            
 
         });
         
