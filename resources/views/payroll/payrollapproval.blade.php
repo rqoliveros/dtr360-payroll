@@ -302,6 +302,7 @@
                     url: `${baseUrl}/approve-documents`,
                     method: 'POST',
                     data:{
+                        approver: email,
                         ids: Array.from(selected),
                         _token: '{{ csrf_token() }}'
                     },

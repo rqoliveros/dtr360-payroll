@@ -13,6 +13,7 @@ use DateTime;
 use DatePeriod;
 use DateInterval;
 use Kreait\Firebase\Auth;
+use Mockery\Undefined;
 
 class FirebaseController extends Controller
 {
@@ -56,7 +57,6 @@ class FirebaseController extends Controller
         $employees = $this->getEmployees($dept);
         $docs = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'dateFrom');
         $ots = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'otDate');
-        $departments = config('departments'); //fetch departments
         $startDate = strtotime($startDate) * 1000;
         $endDate   = strtotime($endDate  . ' +1 day') * 1000;
         $reference = $this->database->getReference('Logs');
@@ -372,7 +372,7 @@ class FirebaseController extends Controller
 
         if ($docs) {
             foreach ($docs as $id => $data) {
-                if(str_contains($data['dept'], $dept)  && $data['isApproved'] == false && $data['docType'] != '' && $data['approveRejectBy'] == ''){
+                if(str_contains($data['dept'], $dept)  && $data['isApproved'] == false && $data['docType'] != '' && !isset($data['approveRejectBy'])){
                     $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
                 }
             }
@@ -411,7 +411,7 @@ class FirebaseController extends Controller
             ];
         }
         
-        return response()->json($formatted);
+        return response()->json($formatted ?? []);
         // return $firebaseDocs;
     }
 
