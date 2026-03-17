@@ -44,7 +44,8 @@ class PayrollController extends Controller
         }
         return $firebaseUsers;
     }
-
+    
+    //Bulk approval
     public function approveDocuments(Request $request){
         // dd($request);
         $ids = $request->ids;
@@ -69,6 +70,7 @@ class PayrollController extends Controller
         return response()->json($request);
     }
 
+    //Reject docoument
     public function rejectDocument(Request $request){
         $approver = $request->approver;
         $timestamp = now()->format('Y-m-d H:i:s.u');
@@ -87,6 +89,29 @@ class PayrollController extends Controller
         
     }
 
+    public function rejectMultipleDocuments(Request $request){
+        $ids = $request->ids;
+        $approver = $request->approver;
+        $timestamp = now()->format('Y-m-d H:i:s.u');
+        $updates = [];
+        foreach($ids as $id){
+            $docId = $id['id'];
+            $updates["FilingDocuments/$docId"] = [
+                'isRejected'=> true,
+                'approveRejectBy'=> $approver,
+                'approveRejectDate'=> $timestamp,
+                'approveRejectReason' => $request->reason
+            ];
+        }
+        dd($updates);
+        $this->database->getReference()->update($updates);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    //Single document approval
     public function approveDocument(Request $request){
         $approver = Session::get('firebase_user.name');
         $timestamp = now()->format('Y-m-d H:i:s.u');
@@ -124,15 +149,6 @@ class PayrollController extends Controller
 
         //Then update FilingDocuments document status
         $this->approveRejectDocuments($docs, true, $approver, $timestamp);
-        // $docs->update([
-        //         'isApproved'=> true,
-        //         'approveRejectBy'=> $approver,
-        //         'approveRejectDate'=> $timestamp
-        //     ]);
-        // return response()->json([
-        //     'success' => true
-        // ]);
-
         
     }
 
@@ -161,9 +177,7 @@ class PayrollController extends Controller
         $isTrue = false;
         if ($query) {
             foreach ($query as $id => $data) {
-                $attendanceTimestamp = $data['dateTimeIn'];
-                $attendanceDate = \Carbon\Carbon::createFromTimestampMs($attendanceTimestamp)
-                    ->format('Y-m-d');
+                $attendanceDate = date('Y-m-d', $data['dateTimeIn'] / 1000);
                 if ($attendanceDate === $correctDate) {
                     $isTrue = true;
                     $combined = $correctDate . ' ' . $documentData['correctTime'];
@@ -200,7 +214,7 @@ class PayrollController extends Controller
                     }
                     
                     $this->approveRejectDocuments($docs, true, $approver, $timestamp);
-
+                    break;
                 }
             }
             
@@ -251,6 +265,7 @@ class PayrollController extends Controller
             }
 
             $this->database->getReference('Logs')->push($logData);
+            $this->approveRejectDocuments($docs, true, $approver, $timestamp);
         }
 
     }
