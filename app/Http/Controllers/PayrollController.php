@@ -126,7 +126,7 @@ class PayrollController extends Controller
                 $this->approveCorrection($request->approver, $timestamp, $documentData, $docs, $employees);
             }
             else if( $documentData['docType'] == 'Leave') {
-                $this->approveLeave($approver, $timestamp, $docs, $request->empKey, $documentData);
+                $this->approveLeave($request->approver, $timestamp, $docs, $request->empKey, $documentData);
             }
         }
     }
@@ -135,12 +135,12 @@ class PayrollController extends Controller
         //Deduct the leave if deductLeave is true
         if($documentData['deductLeave'] == true){
             $employee = $this->database->getReference('Employee/'. $empKey);
+            $empData =  $employee->getValue();
             if($employee){
                 
                 $leaveCredit = (float) ($empData['remainingLeaves'] ?? 0);
                 $deduction = (float) ($documentData['noOfDay'] ?? 0);
                 $remainingLeave = max(0, $leaveCredit - $deduction);
-
                 $employee->update([
                     'remainingLeaves' => $remainingLeave
                 ]);

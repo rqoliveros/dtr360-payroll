@@ -19,7 +19,6 @@
         @include('layouts.header')
         <!-- Date Filters -->
         <div class="flex gap-3 items-end mt-4">
-
             <div>
                 <label class="block text-sm font-medium">Start Date</label>
                 <input type="date" id="startDate" class="border rounded px-2 py-1">
@@ -29,7 +28,29 @@
                 <label class="block text-sm font-medium">End Date</label>
                 <input type="date" id="endDate" class="border rounded px-2 py-1">
             </div>
+            @php
+                $canSelectDept = in_array($usertype, ['Approver','Admin']) && $dept === 'IT';
+            @endphp
 
+            @if($canSelectDept)
+            <div>
+                <label class="block text-sm font-medium">Department</label>
+                <select id="departmentFilter" class="border rounded px-2 py-1">
+                    <option value="">All Departments</option>
+                    <option value="Human Resource">Human Resource</option>
+                    <option value="IT">IT</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Consulting">Consulting</option>
+                    <option value="IH">IH</option>
+                    <option value="Testing">Testing</option>
+                    <option value="Training">Training</option>
+                    <option value="FAD">FAD</option>
+                    <option value="IMS">IMS</option>
+                    <!-- add more if needed -->
+                </select>
+            </div>
+            @endif
             <button id="filterBtn"
                 class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                 Load Attendance
@@ -87,6 +108,7 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script>
         const userDept = "{{ $dept }}";
+        const usertype = " {{ $usertype }}";
     </script>
     <script>
 
@@ -94,12 +116,18 @@
 
             const dept = "{{ $dept }}";
             const baseUrl = "{{ url('/payroll/attendance') }}";
-
+            
             let table = null;
-
+            
             function loadTable(startDate, endDate){
+                let selectedDept = $('#departmentFilter').length 
+                    ? $('#departmentFilter').val() 
+                    : "{{ $dept }}";
 
-                let url = `${baseUrl}/${dept}/${startDate}/${endDate}`;
+                if(!selectedDept){
+                    selectedDept = 'all';
+                }
+                let url = `${baseUrl}/${selectedDept}/${startDate}/${endDate}`;
 
                 if(table){
                     table.destroy();
@@ -110,7 +138,11 @@
                         url: url,
                         dataSrc:''
                     },
-                    dom: 'Bfrtip',
+                    dom: 'lBfrtip',
+                    pageLength: 50,
+                    lengthMenu: [10, 25, 50, 100],
+                    scrollY: '60vh',
+                    scrollCollapse: true,
                     buttons: [
                                 {
                                     extend: 'excelHtml5',
@@ -184,6 +216,9 @@
 
                 loadTable(startDate,endDate);
 
+            });
+            $('#departmentFilter').change(function(){
+                console.log("Changed to:", $(this).val());
             });
 
             // Cutoff 26 prev month -> 10 current month

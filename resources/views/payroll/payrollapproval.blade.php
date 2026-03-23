@@ -62,17 +62,14 @@
                 class="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">
                 26 prev - 10 current
             </button>
-
             <button id="cutoff2"
                 class="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">
                 11 - 25
             </button>
-
             <button id="thisMonth"
                 class="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">
                 Full Month
             </button>
-
             <!-- Right side buttons -->
             <div class="ml-auto flex gap-2">
                 <button id="approveSelected" class="btn btn-success btn-sm">
@@ -82,7 +79,6 @@
                     Reject
                 </button>
             </div>
-
         </div>
 
         <!-- Table -->
@@ -176,6 +172,7 @@
     <script>
         const userDept = "{{ $dept }}";
         const email = "{{ $authUser }}";
+        const usertype = "{{ $usertype }}";
     </script>
     <script>
         

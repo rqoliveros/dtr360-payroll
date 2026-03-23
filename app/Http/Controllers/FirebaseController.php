@@ -36,9 +36,15 @@ class FirebaseController extends Controller
 
         if ($users) {
             foreach ($users as $id => $data) {
-                if(str_contains($data['department'], $dept)){
+                if($dept == 'all'){
                     $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
                 }
+                else{
+                    if(str_contains($data['department'], $dept)){
+                        $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
+                    }
+                }
+                
             }
         }
         return $firebaseUsers;
@@ -56,6 +62,7 @@ class FirebaseController extends Controller
         $holidays = $this->getHolidays($startDate, $endDate);
         $employees = $this->getEmployees($dept);
         $docs = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'dateFrom');
+        // dd($docs);
         $ots = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'otDate');
         $startDate = strtotime($startDate) * 1000;
         $endDate   = strtotime($endDate  . ' +1 day') * 1000;
@@ -69,9 +76,15 @@ class FirebaseController extends Controller
 
         if ($logs) {
             foreach ($logs as $id => $data) {
-                if(str_contains($data['department'], $dept)){
+                if($dept == 'all'){
                     $firebaseAttendance[] = new FirebaseAttendance($id, $data);
                 }
+                else{
+                    if( str_contains($data['department'], $dept)){
+                        $firebaseAttendance[] = new FirebaseAttendance($id, $data);
+                    }
+                }
+                
                 
             }
            
@@ -100,42 +113,17 @@ class FirebaseController extends Controller
             $missingRow->hoursWorked = 0.00;
             $missingRow->timeOut = null;
             $missingRow->remarks = 'Absent';
+            $missingRow->guid = $missings->guid;
 
-            $firebaseAttendance[] = $missingRow;
+            $firebaseAttendance[$missings->guid] = $missingRow;
         }
-
-
+        $uniqueEmployees = collect($firebaseAttendance) //get unique employees
+        ->unique('employeeName')
+        ->values();
         //SHIFT IDENTIFICATION
         $shiftMap = [];
         foreach ($uniqueEmployees as $employeeName) {
-            //Leave
             
-            if (!empty($employeeName->guid) && isset($docs[$employeeName->guid]) && $docs[$employeeName->guid]->docType == 'Leave') {
-                $leave = $docs[$employeeName->guid];
-                $from = $leave->dateFrom;
-                $to = $leave->dateTo;
-                $start = new DateTime(substr($from, 0, 10)); // "2026-02-17"
-                $end   = new DateTime(substr($to, 0, 10));
-                $end->modify('+1 day');
-                $period = new DatePeriod($start, new DateInterval('P1D'), $end);
-                foreach ($period as $date) {
-                    $leaveRow = new \stdClass();
-                    $leaveRow->id = null;
-                    $leaveRow->employeeID = $employeeName->employeeID;
-                    $leaveRow->employeeName = $employeeName->employeeName;
-                    $leaveRow->department = $employeeName->department;
-                    $leaveRow->dateTimeIn = $date->format('m/d/Y');
-                    $leaveRow->day = $date->format('l');
-                    $leaveRow->timeIn = null;
-                    $leaveRow->timeOut = null;
-                    $leaveRow->remarks = $docs[$employeeName->guid]->isApproved == true ? $docs[$employeeName->guid]->leaveType : 'Pending: ' . $docs[$employeeName->guid]->leaveType;
-                    $leaveRow->leave = $docs[$employeeName->guid]->leaveType;
-
-                    $firebaseAttendance[] = $leaveRow;
-                    
-                }
-                
-            }
             if (!empty($employeeName->guid) && isset($ots[$employeeName->guid]) && $ots[$employeeName->guid]->docType == 'Overtime') {
 
                 $ot = $ots[$employeeName->guid];
@@ -211,6 +199,7 @@ class FirebaseController extends Controller
 
 
         // Compute Hours Worked and append date and compute lates
+
         foreach ($firebaseAttendance as $row) {
 
             if (!empty($row->timeIn) && !empty($row->timeOut) && $row->timeIn != '-' && $row->timeOut != '-') {
@@ -454,9 +443,15 @@ class FirebaseController extends Controller
 
         if ($docs) {
             foreach ($docs as $id => $data) {
-                if(str_contains($data['dept'], $dept)){
+                if($dept == 'all'){
                     $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
                 }
+                else{
+                    if(str_contains($data['dept'], $dept)){
+                        $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
+                    }
+                }   
+                
             }
         }
         return $firebaseDocs;
