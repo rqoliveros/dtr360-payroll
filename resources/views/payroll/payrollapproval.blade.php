@@ -179,9 +179,9 @@
         $(document).ready(function () {
             let currentDocId = null;
             let empKey = null;
-            const dept = "{{ $dept }}";
+            const dept = "{{ str_replace('/', ',', $dept) }}";
             const baseUrl = "{{ url('/payroll/approval') }}";
-
+            
             let table = null;
 
             function loadTable(startDate, endDate){

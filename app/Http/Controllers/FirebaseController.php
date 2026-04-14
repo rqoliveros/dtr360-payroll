@@ -36,13 +36,22 @@ class FirebaseController extends Controller
 
         if ($users) {
             foreach ($users as $id => $data) {
-                if($dept == 'all'){
+                if ($dept === 'all' || $dept === '') {
+
                     $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
-                }
-                else{
-                    if(str_contains($data['department'], $dept)){
-                        $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
+
+                } else {
+
+                    // Check if multiple departments (e.g. "IT,FAD")
+                    $deptList = str_contains($dept, ',') ? explode(',', $dept) : [$dept];
+
+                    foreach ($deptList as $d) {
+                        if (str_contains($data['department'], trim($d))) {
+                            $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
+                            break; // stop once matched
+                        }
                     }
+
                 }
                 
             }
@@ -80,15 +89,22 @@ class FirebaseController extends Controller
                     $firebaseAttendance[] = new FirebaseAttendance($id, $data);
                 }
                 else{
-                    if( str_contains($data['department'], $dept)){
-                        $firebaseAttendance[] = new FirebaseAttendance($id, $data);
+                    $deptList = str_contains($dept, ',') ? explode(',', $dept) : [$dept];
+
+                    foreach ($deptList as $d) {
+                        if (str_contains($data['department'], trim($d))) {
+                            $firebaseAttendance[] = new FirebaseAttendance($id, $data);
+                            break; // stop once matched
+                        }
                     }
+
                 }
                 
                 
             }
            
         }
+            
         $uniqueEmployees = collect($firebaseAttendance) //get unique employees
         ->unique('employeeName')
         ->values();
@@ -114,7 +130,7 @@ class FirebaseController extends Controller
             $missingRow->timeOut = null;
             $missingRow->remarks = 'Absent';
             $missingRow->guid = $missings->guid;
-
+            $missingRow->isAbsent = true;
             $firebaseAttendance[$missings->guid] = $missingRow;
         }
         $uniqueEmployees = collect($firebaseAttendance) //get unique employees
@@ -123,35 +139,107 @@ class FirebaseController extends Controller
         //SHIFT IDENTIFICATION
         $shiftMap = [];
         foreach ($uniqueEmployees as $employeeName) {
-            
-            if (!empty($employeeName->guid) && isset($ots[$employeeName->guid]) && $ots[$employeeName->guid]->docType == 'Overtime') {
-
-                $ot = $ots[$employeeName->guid];
-                $timestamp = strtotime($ot->otDate);
-                $date = date('m/d/Y', $timestamp);
-                $existingRow = collect($firebaseAttendance)->first(function ($row) use ($employeeName, $date) {
-                    return $row->employeeID == $employeeName->employeeID
-                        && $row->dateTimeIn == $date;
-                });
+            $leave =[];
+            foreach($docs as $doc){
                 
-                if ($existingRow) {
-                    // merge remarks
-                    if (!empty($existingRow->remarks)) {
-                        if (!str_contains($existingRow->remarks, $holiday->holidayType)) {
-                            $existingRow->remarks .= $ot->isApproved == true ? ' | ' . $ot->otType . ': ' . $ot->hoursNo : ' | Pending' . $ot->otType . ': ' . $ot->hoursNo;
-                            $existingRow->otType = $ot->otType;
-                            $existingRow->otHours = $ot->hoursNo;
+                if($doc->guid == $employeeName->guid && $doc->docType == 'Leave'){
+                    $leave = $doc;
+                    if ($leave) {
+                        $from = $leave->dateFrom;
+                        $to = $leave->dateTo;
+                        $start = new DateTime(substr($from, 0, 10)); // "2026-02-17"
+                        $end   = new DateTime(substr($to, 0, 10));
+                        $end->modify('+1 day');
+                        $period = new DatePeriod($start, new DateInterval('P1D'), $end);
+                        $leaveTypeText = $leave->isHalfday
+                        ? 'Half day'
+                        : $leave->leaveType;
+                        
+                        foreach ($period as $date) {
+                            $formattedDate = $date->format('m/d/Y');
+                            // $existingRow = collect($firebaseAttendance)->first(function ($row) use ($employeeName, $formattedDate) {
+                            //     return $row->employeeID == $employeeName->employeeID
+                            //         && $row->dateTimeIn == $formattedDate;
+                            // });
+                            $existingRow = [];
+                            foreach($firebaseAttendance as $attendance){
+                                
+                                if($attendance->employeeID == $employeeName->employeeID && $attendance->dateTimeIn == $formattedDate){
+                                    $existingRow = $attendance;
+                                    break;
+                                }
+                            }
+                            if($existingRow){
+                                
+
+                                $leaveText = $leave->isApproved
+                                    ? $leaveTypeText
+                                    : 'Pending: ' . $leaveTypeText;
+
+                                $existingRow->remarks = $existingRow->remarks == 'Absent' ? $leaveText : trim(($existingRow->remarks ?? '') . ' | ' . $leaveText);
+                                $existingRow->leave = $leave->leaveType;
+                                $existingRow->isAbsent = false;
+                                $existingRow->isHalfday = $leave->isHalfday;
+                            }
+                            else{
+                            
+                                $leaveRow = new \stdClass();
+                                $leaveRow->id = null;
+                                $leaveRow->employeeID = $employeeName->employeeID;
+                                $leaveRow->employeeName = $employeeName->employeeName;
+                                $leaveRow->department = $employeeName->department;
+                                $leaveRow->dateTimeIn = $date->format('m/d/Y');
+                                $leaveRow->day = $date->format('l');
+                                $leaveRow->timeIn = null;
+                                $leaveRow->timeOut = null;
+                                $leaveRow->remarks = $leave->isApproved == true ? $leaveTypeText : 'Pending: ' . $leaveTypeText;
+                                $leaveRow->leave = $leave->leaveType;
+                                $leaveRow->isApproved = $leave->isApproved;
+                                $leaveRow->isCancelled = $leave->isCancelled;
+                                $leaveRow->isHalfday = $leave->isHalfday;
+                                $firebaseAttendance[] = $leaveRow;
+                            }
+
                             
                         }
-                    } else {
-                        $existingRow->remarks = $ot->isApproved == true ? $ot->otType . ': ' . $ot->hoursNo : 'Pending: ' . $ot->otType . ': ' . $ot->hoursNo;
-                        $existingRow->otType = $ot->otType;
-                        $existingRow->otHours = $ot->hoursNo;
-                    }
 
+                        
+                    }
                 }
-                
             }
+            foreach($ots as $ot){
+                $overtime = [];
+                if($ot->guid == $employeeName->guid && $ot->docType == 'Overtime'){
+                    $overtime = $ot;
+                }
+                if ($overtime) {
+                    $timestamp = strtotime($overtime->otDate);
+                    $date = date('m/d/Y', $timestamp);
+                    $existingRow = collect($firebaseAttendance)->first(function ($row) use ($employeeName, $date) {
+                        return $row->employeeID == $employeeName->employeeID
+                            && $row->dateTimeIn == $date;
+                    });
+                    
+                    if ($existingRow) {
+                        // merge remarks
+                        if (!empty($existingRow->remarks)) {
+                            $existingRow->remarks .= $overtime->isApproved == true ? ' | ' . $overtime->otType . ': ' . $overtime->hoursNo : ' | Pending' . $overtime->otType . ': ' . $overtime->hoursNo;
+                            $existingRow->otType = $overtime->otType;
+                            $existingRow->otHours = $overtime->hoursNo;
+                            
+                        } else {
+                            $existingRow->remarks = $overtime->isApproved == true ? $overtime->otType . ': ' . $overtime->hoursNo : 'Pending: ' . $overtime->otType . ': ' . $overtime->hoursNo;
+                            $existingRow->otType = $overtime->otType;
+                            $existingRow->otHours = $overtime->hoursNo;
+                        }
+
+                    }
+                    
+                }
+            }
+
+            
+            
             foreach ($holidays as $holiday) {
 
                 $timestamp = strtotime($holiday->holidayDate . ' 00:00:00');
@@ -262,7 +350,7 @@ class FirebaseController extends Controller
                     return $row->employeeID == $employeeName->employeeID
                         && $row->dateTimeIn == $date;
                 });
-                $currentShift = $employees[$row->employeeID]->$dayofweek;
+                $currentShift = $employees[$employeeName->employeeID]->$dayofweek;
                 if (!$existingRow && $currentShift == 1) {
                     // merge remarks
                     $missingRow = new \stdClass();
@@ -276,7 +364,7 @@ class FirebaseController extends Controller
                     $missingRow->timeOut = null;
                     $missingRow->hoursWorked = 0.00;
                     $missingRow->remarks = 'Absent';
-
+                    $missingRow->isAbsent = true;
                     $firebaseAttendance[] = $missingRow;
 
                 } 
@@ -308,7 +396,7 @@ class FirebaseController extends Controller
                     $missingRow->timeOut = null;
                     $missingRow->hoursWorked = 0.00;
                     $missingRow->remarks = 'Absent';
-
+                    $missingRow->isAbsent = true;
                     $firebaseAttendance[] = $missingRow;
 
                 } 
@@ -340,7 +428,11 @@ class FirebaseController extends Controller
                 'timeOut' => $emp->timeOut,
                 'remarks' => $emp->remarks,
                 'undertime' => $emp->undertime ?? 0.00,
-                'late' => $emp->late ?? 0.00
+                'late' => $emp->late ?? 0.00,
+                'isAbsent' => $emp->isAbsent ?? false,
+                'isCancelled' => $emp->isCancelled ?? false,
+                'holiday' => $emp->holiday ?? '',
+                'isHalfday' => $emp->isHalfday ?? false
             ];
         }
         
@@ -360,8 +452,28 @@ class FirebaseController extends Controller
         $firebaseDocs = [];
 
         if ($docs) {
+
+            // Convert incoming dept to array
+            $deptList = str_contains($dept, ',') ? explode(',', $dept) : [$dept];
+
             foreach ($docs as $id => $data) {
-                if(str_contains($data['dept'], $dept)  && $data['isApproved'] == false && $data['docType'] != '' && !isset($data['approveRejectBy'])){
+
+                // Check if dept matches ANY in the list
+                $match = false;
+
+                foreach ($deptList as $d) {
+                    if (trim($data['dept']) === trim($d)) {
+                        $match = true;
+                        break;
+                    }
+                }
+
+                if (
+                    $match &&
+                    $data['isApproved'] == false &&
+                    $data['docType'] != '' &&
+                    !isset($data['approveRejectBy'])
+                ) {
                     $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
                 }
             }
@@ -433,9 +545,11 @@ class FirebaseController extends Controller
     {
 
         $reference = $this->database->getReference('FilingDocuments');
+        $startAt = $startDate . ' 00:00:00';
+        $endAt = $endDate . ' 23:59:59';
         $query = $reference->orderByChild($filter)    // 'date' is the key in your data
-                        ->startAt($startDate)    // start of range
-                        ->endAt($endDate);       // end of range
+                        ->startAt($startAt)    // start of range
+                        ->endAt($endAt);       // end of range
 
         $docs = $query->getValue();
 
@@ -447,8 +561,12 @@ class FirebaseController extends Controller
                     $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
                 }
                 else{
-                    if(str_contains($data['dept'], $dept)){
-                        $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
+                    $deptList = str_contains($dept, ',') ? explode(',', $dept) : [$dept];
+                    foreach ($deptList as $d) {
+                        if (str_contains($data['dept'], trim($d))) {
+                            $firebaseDocs[] = new FirebaseFilingDocuments($id, $data);
+                            break; // stop once matched
+                        }
                     }
                 }   
                 

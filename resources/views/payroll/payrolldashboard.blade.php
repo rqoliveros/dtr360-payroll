@@ -29,25 +29,53 @@
                 <input type="date" id="endDate" class="border rounded px-2 py-1">
             </div>
             @php
-                $canSelectDept = in_array($usertype, ['Approver','Admin']) && $dept === 'IT';
+                $canSelectDept = in_array($usertype, ['Approver','Admin']);
+                $allDepartments = [
+                    'Human Resource',
+                    'IT',
+                    'Marketing',
+                    'Sales',
+                    'Consulting',
+                    'IH',
+                    'Testing',
+                    'Training',
+                    'FAD',
+                    'IMS'
+                ];
             @endphp
 
             @if($canSelectDept)
             <div>
                 <label class="block text-sm font-medium">Department</label>
                 <select id="departmentFilter" class="border rounded px-2 py-1">
-                    <option value="">All Departments</option>
-                    <option value="Human Resource">Human Resource</option>
-                    <option value="IT">IT</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Consulting">Consulting</option>
-                    <option value="IH">IH</option>
-                    <option value="Testing">Testing</option>
-                    <option value="Training">Training</option>
-                    <option value="FAD">FAD</option>
-                    <option value="IMS">IMS</option>
-                    <!-- add more if needed -->
+
+                    {{-- HR = Full access --}}
+                    @if($dept === 'Human Resource')
+                        <option value="all">All Departments</option>
+                        @foreach($allDepartments as $d)
+                            <option value="{{ $d }}">{{ $d }}</option>
+                        @endforeach
+
+                    {{-- Multiple departments --}}
+                    @elseif(str_contains($dept, '/'))
+                        @php
+                            $deptList = array_map('trim', explode('/', $dept));
+                        @endphp
+
+                        @foreach($deptList as $d)
+                            <option value="{{ $d }}">{{ $d }}</option>
+                        @endforeach
+
+                        {{-- Combined option --}}
+                        <option value="{{ implode(',', $deptList) }}">
+                            {{ implode(' and ', $deptList) }}
+                        </option>
+
+                    {{-- Single department --}}
+                    @else
+                        <option value="{{ $dept }}">{{ $dept }}</option>
+                    @endif
+
                 </select>
             </div>
             @endif
@@ -143,6 +171,29 @@
                     lengthMenu: [10, 25, 50, 100],
                     scrollY: '60vh',
                     scrollCollapse: true,
+                    createdRow: function(row, data) {
+
+                        if(data.remarks && data.remarks.includes('Pending')){
+                            $(row).css({
+                                'background-color': '#ebcc67',
+                                'color': '#374151  b'
+                            });
+                        }
+                        else if (data.holiday !== '' || data.late > 0 || data.undertime > 0) {
+                            $(row).css({
+                                'background-color': '#F3F4F6',
+                                'color': '#374151'
+                            });
+                        } 
+                        else if (data.isAbsent === true) {
+                            $(row).css({
+                                'background-color': '#FEE2E2',
+                                'color': '#991B1B'
+                            });
+
+                        }
+
+                    },
                     buttons: [
                                 {
                                     extend: 'excelHtml5',
