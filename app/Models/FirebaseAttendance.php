@@ -50,20 +50,18 @@ class FirebaseAttendance extends Model
             ? date('l', strtotime($this->dateTimeIn))
             : null;
 
-        // Compute Hours Worked
+        // Compute Hours Worked as decimal hours (matches computeForRoleD)
         if ($this->timeIn && $this->timeOut) {
-
             $timeIn = strtotime($this->timeIn);
             $timeOut = strtotime($this->timeOut);
 
             $seconds = $timeOut - $timeIn;
 
             $this->hoursWorked = $seconds > 0
-                ? gmdate("H:i", $seconds)
-                : "00:00";
-
+                ? round($seconds / 3600, 2)
+                : 0.00;
         } else {
-            $this->hoursWorked = "00:00";
+            $this->hoursWorked = 0.00;
         }
     }
 

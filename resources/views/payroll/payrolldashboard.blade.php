@@ -119,6 +119,7 @@
                         <th class="border px-2 py-1">Time In</th>
                         <th class="border px-2 py-1">Time Out</th>
                         <th class="border px-2 py-1">Hours Worked</th>
+                        <th class="border px-2 py-1">Payroll Computations</th>
                         <th class="border px-2 py-1">Remarks</th>
                         <th class="border px-2 py-1">Action</th>
                     </tr>
@@ -230,16 +231,41 @@
                         },
                         {
                             data: 'hoursWorked',
+                        },
+                        {
+                            data: null,
                             render: function(data){
                                 if(!data) return '';
-                                // Split "HH:MM"
-                                let parts = data.split(':');
-                                let hours = parseInt(parts[0]);
-                                let minutes = parseInt(parts[1]);
-                                // Convert minutes to fraction of hour
-                                let decimal = hours + (minutes / 60);
-                                // Round to 2 decimal places
-                                return decimal.toFixed(2);
+                                const parts = [];
+                                function pushIf(label, value){ if(value && value != 0) parts.push(label + ': ' + parseFloat(value).toFixed(2) + ' hrs'); }
+
+                                // Day / night breakdowns
+                                pushIf('Regular Day', data.regularDayHours);
+                                pushIf('Rest Day', data.restDayHours);
+                                pushIf('Regular Holiday', data.regularHolidayHours);
+                                pushIf('Regular Holiday (Rest)', data.regularHolidayRestDayHours);
+                                pushIf('Special Non-working', data.specialNonWorkingHours);
+                                pushIf('Special Non-working (Rest)', data.specialNonWorkingRestDayHours);
+                                pushIf('Night Shift', data.nightShiftHours);
+                                pushIf('Night Shift (Rest)', data.nightShiftRestDayHours);
+                                pushIf('Night Shift (Reg Holiday)', data.nightShiftRegularHolidayHours);
+                                pushIf('Night Shift (Special)', data.nightShiftSpecialNonWorkingHours);
+
+                                // OT breakdowns
+                                pushIf('Regular OT', data.regularOt);
+                                pushIf('Regular Night OT', data.regularNightOt);
+                                pushIf('Rest Day OT', data.restOt);
+                                pushIf('Rest Day Night OT', data.restNightOt);
+                                pushIf('Holiday OT', data.holidayOt);
+                                pushIf('Holiday(Rest) OT', data.holidayRestOt);
+                                pushIf('Holiday Night OT', data.holidayNightOt);
+                                pushIf('Holiday(Rest) Night OT', data.holidayRestNightOt);
+                                pushIf('Special OT', data.specialOt);
+                                pushIf('Special Night OT', data.specialNightOt);
+                                pushIf('Special(Rest) OT', data.specialRestOt);
+                                pushIf('Special(Rest) Night OT', data.specialRestNightOt);
+
+                                return parts.join(' | ');
                             }
                         },
                         { data:'remarks' },

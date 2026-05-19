@@ -47,5 +47,6 @@ class FirebaseUsers extends Model
         $this->friday = $data['friday'] ?? null;
         $this->saturday = $data['saturday'] ?? null;
         $this->sunday = $data['sunday'] ?? null;
+        $this->userRole = $data['userRole'] ?? null;
     }
 }
