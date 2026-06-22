@@ -169,11 +169,7 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script>
-        const userDept = "{{ $dept }}";
-        const email = "{{ $authUser }}";
-        const usertype = "{{ $usertype }}";
-    </script>
+
     <script>
         
         $(document).ready(function () {
@@ -181,7 +177,9 @@
             let empKey = null;
             const dept = "{{ str_replace('/', ',', $dept) }}";
             const baseUrl = "{{ url('/payroll/approval') }}";
-            
+            const userDept = "{{ $dept }}";
+            const email = "{{ $authUser }}";
+            const usertype = "{{ $usertype }}";
             let table = null;
 
             function loadTable(startDate, endDate){
