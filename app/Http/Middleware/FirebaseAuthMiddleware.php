@@ -32,6 +32,7 @@ class FirebaseAuthMiddleware
             View::share('authUser', $user->empName);
             View::share('dept', $user->dept);
             View::share('usertype', $user->usertype);
+            View::share('guid', $user->guid);
         }
 
         return $next($request);

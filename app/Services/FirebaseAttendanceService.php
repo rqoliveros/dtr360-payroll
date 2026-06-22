@@ -21,7 +21,7 @@ class FirebaseAttendanceService
         $this->database = $database ?? app('firebase.database');
     }
 
-    public function getAttendanceByDateRange($dept, $startDate, $endDate)
+    public function getAttendanceByDateRange($dept, $startDate, $endDate, $usertype, $guid)
     {
         date_default_timezone_set('Asia/Manila');
 
@@ -31,24 +31,27 @@ class FirebaseAttendanceService
         );
 
         $holidays = $this->getHolidays($startDate, $endDate);
-        $employees = $this->getEmployees($dept);
+        $employees = $this->getEmployees($dept, $usertype, $guid);
         $docs = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'dateFrom');
         $ots = $this->getFiledDocumentsByDateRange($dept, $startDate, $endDate, 'otDate');
 
         $logs = $this->fetchLogs($startDate, $endDate);
 
-        $firebaseAttendance = $this->buildAttendanceFromLogs($logs, $dept);
-
+        $firebaseAttendance = $this->buildAttendanceFromLogs($logs, $dept, $usertype, $guid);
         $uniqueEmployees = collect($firebaseAttendance)->unique('employeeName')->values();
         $uniqueEmployeeIds = $uniqueEmployees->pluck('employeeID');
-
-        $missingEmployees = collect($employees)
+        $missingEmployees = [];
+        if(trim($usertype) !== 'Employee'){
+            $missingEmployees = collect($employees)
             ->filter(function ($emp) use ($uniqueEmployeeIds) {
                 return !$uniqueEmployeeIds->contains($emp->empId) && $emp->usertype != 'Former Employee';
             })
             ->values();
+            $this->addMissingEmployees($firebaseAttendance, $missingEmployees, $startDate);
+        }
+        
 
-        $this->addMissingEmployees($firebaseAttendance, $missingEmployees, $startDate);
+        
 
         $uniqueEmployees = collect($firebaseAttendance)->unique('employeeName')->values();
 
@@ -57,9 +60,9 @@ class FirebaseAttendanceService
         $this->computeHoursAndRemarks($firebaseAttendance, $employees, $holidays);
 
         $this->fillMissingShiftDays($firebaseAttendance, $uniqueEmployees, $periods, $employees);
-
-        $this->fillMissingForEmployeesNotInUnique($firebaseAttendance, $missingEmployees, $periods, $employees);
-
+        if($usertype !== 'Employee'){
+            $this->fillMissingForEmployeesNotInUnique($firebaseAttendance, $missingEmployees, $periods, $employees);
+        }
         usort($firebaseAttendance, function($a, $b) {
             $nameComparison = strcmp($a->employeeName, $b->employeeName);
             if ($nameComparison === 0) {
@@ -83,10 +86,19 @@ class FirebaseAttendanceService
         return $query->getValue() ?? [];
     }
 
-    protected function buildAttendanceFromLogs($logs, $dept)
+    protected function buildAttendanceFromLogs($logs, $dept, $usertype, $guid)
     {
         $out = [];
         if (!$logs) return $out;
+        // If requester is a single employee, return only logs matching that guid
+        if (isset($usertype) && strtolower(trim($usertype)) === 'employee') {
+            foreach ($logs as $id => $data) {
+                if (isset($data['guid']) && $data['guid'] === trim($guid)) {
+                    $out[] = new FirebaseAttendance($id, $data);
+                }
+            }
+            return $out;
+        }
 
         foreach ($logs as $id => $data) {
             if ($dept === 'all' || $dept === '') {
@@ -96,7 +108,7 @@ class FirebaseAttendanceService
 
             $deptList = str_contains($dept, ',') ? explode(',', $dept) : [$dept];
             foreach ($deptList as $d) {
-                if (str_contains($data['department'], trim($d))) {
+                if (isset($data['department']) && str_contains($data['department'], trim($d))) {
                     $out[] = new FirebaseAttendance($id, $data);
                     break;
                 }
@@ -872,12 +884,27 @@ class FirebaseAttendanceService
         return $formatted;
     }
 
-    public function getEmployees($dept)
+    public function getEmployees($dept, $usertype, $guid)
     {
         $users = $this->database->getReference('Employee')->getValue();
         $firebaseUsers = [];
+        $guids = [];
         if ($users) {
+            
             foreach ($users as $id => $data) {
+                // If requester is a single Employee, return only that employee by guid
+                $guids[] = $data['guid'] ?? null;
+                if (trim($usertype) === 'Employee') {
+                    
+                    if ($data['guid'] === trim($guid)) {
+                        $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
+                        break;
+                    }
+                    // skip others
+                    continue;
+                }
+
+                // Department filtering for non-single-employee requests
                 if ($dept === 'all' || $dept === '') {
                     $firebaseUsers[$data['employeeID']] = new FirebaseUsers($id, $data);
                 } else {

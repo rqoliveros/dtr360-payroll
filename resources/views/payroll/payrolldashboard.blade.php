@@ -135,20 +135,20 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script>
-        const userDept = "{{ $dept }}";
-        const usertype = " {{ $usertype }}";
-    </script>
+
     <script>
 
         $(document).ready(function () {
 
             const dept = "{{ $dept }}";
+            const usertype = " {{ $usertype }}";
+            const guid = " {{ $guid }}";
             const baseUrl = "{{ url('/payroll/attendance') }}";
             
             let table = null;
             
-            function loadTable(startDate, endDate){
+            function loadTable(startDate, endDate, usertype, guid){
+                alert(usertype);
                 let selectedDept = $('#departmentFilter').length 
                     ? $('#departmentFilter').val() 
                     : "{{ $dept }}";
@@ -156,7 +156,7 @@
                 if(!selectedDept){
                     selectedDept = 'all';
                 }
-                let url = `${baseUrl}/${selectedDept}/${startDate}/${endDate}`;
+                let url = `${baseUrl}/${selectedDept}/${startDate}/${endDate}/${usertype}/${guid}`;
 
                 if(table){
                     table.destroy();
@@ -291,7 +291,7 @@
                     return;
                 }
 
-                loadTable(startDate,endDate);
+                loadTable(startDate,endDate, usertype, guid);
 
             });
             $('#departmentFilter').change(function(){

@@ -86,7 +86,7 @@ Route::prefix('payroll')
             ->name('approval.document');
 
         // Attendance pages
-        Route::get('/attendance/{department}/{startDate}/{endDate}', 
+        Route::get('/attendance/{department}/{startDate}/{endDate}/{usertype}/{guid}', 
             [FirebaseController::class, 'getAttendanceByDateRange'])
             ->name('attendance');
 

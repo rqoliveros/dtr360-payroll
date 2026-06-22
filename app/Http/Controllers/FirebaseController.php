@@ -59,10 +59,10 @@ class FirebaseController extends Controller
         return $firebaseUsers;
     }
 
-    public function getAttendanceByDateRange($dept,$startDate, $endDate)
+    public function getAttendanceByDateRange($dept,$startDate, $endDate, $usertype, $guid)
     {
         $service = new \App\Services\FirebaseAttendanceService($this->database);
-        $formatted = $service->getAttendanceByDateRange($dept, $startDate, $endDate);
+        $formatted = $service->getAttendanceByDateRange($dept, $startDate, $endDate, $usertype, $guid);
         return response()->json($formatted);
     }
 
