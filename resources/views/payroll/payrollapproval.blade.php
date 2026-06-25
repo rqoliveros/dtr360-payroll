@@ -423,7 +423,7 @@
                         extraHtml = `
                             <p><strong>Corrected Date:</strong> ${data.correctDate}</p>
                             <p><strong>Corrected Time:</strong> ${data.correctTime}</p>
-                            <p><strong>Corrected Time Out:</strong> ${data.correctTime}</p>
+                            <p><strong>Corrected Time Out:</strong> ${data.correctBothTime}</p>
                             <p><strong>Reason:</strong> ${data.reason}</p>
                         `;
                     }
