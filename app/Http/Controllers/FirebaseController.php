@@ -99,7 +99,7 @@ class FirebaseController extends Controller
                     $data['docType'] != '' &&
                     !isset($data['approveRejectBy'])
                 ) {
-                    $firebaseDocs[$data['guid']] = new FirebaseFilingDocuments($id, $data);
+                    $firebaseDocs[] = new FirebaseFilingDocuments($id, $data);
                 }
             }
         }

@@ -277,8 +277,9 @@ class FirebaseAttendanceService
             if (isset($employee->userRole) && $employee->userRole === 'D') {
                 $this->computeForRoleD($row, $shiftInTime, $shiftOutTime, $timeIn, $timeOut, $currentShift, $employee, $holidays);
             } else {
-                if ($timeIn > $shiftInTime) {
-                    $lateMinutes = floor(($timeIn - $shiftInTime) / 60);
+                $graceSeconds = 5 * 60; // 5-minute grace period
+                if ($timeIn > $shiftInTime + $graceSeconds) {
+                    $lateMinutes = floor(($timeIn - ($shiftInTime + $graceSeconds)) / 60);
                     $row->remarks .= " Late {$lateMinutes} mins";
                     $row->late = $lateMinutes;
                 }
