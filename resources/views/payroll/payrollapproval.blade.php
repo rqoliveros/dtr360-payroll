@@ -231,6 +231,14 @@
 
             }
 
+            function formatTime(timestamp) {
+                return new Date(timestamp.replace(' ', 'T')).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            }
+
             // Manual filter
             $('#filterBtn').click(function(){
 
@@ -413,8 +421,8 @@
 
                     extraHtml = `
                         <p><strong>OT Date:</strong> ${data.otDate}</p>
-                        <p><strong>Start Time:</strong> ${data.otfrom}</p>
-                        <p><strong>End Time:</strong> ${data.otTo}</p>
+                        <p><strong>Start Time:</strong> ${formatTime(data.otfrom)}</p>
+                        <p><strong>End Time:</strong> ${formatTime(data.otTo)}</p>
                         <p><strong>Reason:</strong> ${data.reason}</p>
                     `;
 
