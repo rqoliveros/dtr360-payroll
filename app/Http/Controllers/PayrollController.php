@@ -103,7 +103,6 @@ class PayrollController extends Controller
                 'approveRejectReason' => $request->reason
             ];
         }
-        dd($updates);
         $this->database->getReference()->update($updates);
 
         return response()->json([
