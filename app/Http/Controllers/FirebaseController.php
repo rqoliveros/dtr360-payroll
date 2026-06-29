@@ -129,9 +129,9 @@ class FirebaseController extends Controller
                 'leaveType' => $emp->leaveType ?? null,
                 'noOfDay' => $emp->noOfDay ?? null,
                 'otDate' => $emp->otDate ?? null,
-                'otTo' => $emp->otTo ?? null,
+                'otTo' => $emp->otTo ? Carbon::parse($emp->otTo)->format('h:i A') : null,
                 'otType' => $emp->otType ?? null,
-                'otfrom' => $emp->otfrom ?? null,
+                'otfrom' => $emp->otfrom ? Carbon::parse($emp->otfrom)->format('h:i A') : null,
                 'reason' => $emp->reason ?? null,
                 'uniqueId' => $emp->uniqueId ?? null
             ];
