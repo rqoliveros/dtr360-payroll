@@ -278,4 +278,86 @@ class PayrollController extends Controller
             'success' => true
         ]);
     }
+
+    public function editAttendance(Request $request)
+    {
+        $attendanceId = $request->input('id');
+        $newTimeIn = $request->input('timeIn');
+        $newTimeOut = $request->input('timeOut');
+        $employeeId = $request->input('employeeID');
+        $employeeName = $request->input('employeeName');
+        $userType = $request->input('userType');
+        $guid = $request->input('guid');
+        $department = $request->input('department');
+        $editedBy = $request->input('editedBy') ?? Session::get('firebase_user.name') ?? 'System';
+
+        $timeInTimestamp = !empty($newTimeIn) ? Carbon::parse($newTimeIn)->valueOf() : null;
+        $timeOutTimestamp = !empty($newTimeOut) ? Carbon::parse($newTimeOut)->valueOf() : null;
+
+        $attendanceData = [
+            'timeIn' => $timeInTimestamp,
+            'timeOut' => $timeOutTimestamp,
+            'dateTimeIn' => $timeInTimestamp,
+        ];
+
+        if (!empty($employeeId)) {
+            $attendanceData['employeeID'] = $employeeId;
+        }
+
+        if (!empty($guid)) {
+            $attendanceData['guid'] = $guid;
+        }
+
+        if (!empty($employeeName)) {
+            $attendanceData['employeeName'] = $employeeName;
+        }
+
+        if (!empty($userType)) {
+            $attendanceData['userType'] = $userType;
+        }
+
+        if (!empty($department)) {
+            $attendanceData['department'] = $department;
+        }
+
+        $attendanceData['isEdited'] = true;
+
+        $action = 'updated';
+        $savedAttendanceId = $attendanceId;
+
+        if (!empty($attendanceId)) {
+            $attendanceRef = $this->database->getReference('Logs/' . $attendanceId);
+            $existingAttendance = $attendanceRef->getValue();
+
+            if ($existingAttendance) {
+                $attendanceRef->update($attendanceData);
+            } else {
+                $newAttendanceRef = $this->database->getReference('Logs')->push($attendanceData);
+                $savedAttendanceId = $newAttendanceRef->getKey();
+                $action = 'created';
+            }
+        } else {
+            $newAttendanceRef = $this->database->getReference('Logs')->push($attendanceData);
+            $savedAttendanceId = $newAttendanceRef->getKey();
+            $action = 'created';
+        }
+
+        $this->database->getReference('NotificationLogs')->push([
+            'type' => 'attendance_edit',
+            'action' => $action,
+            'attendanceId' => $savedAttendanceId,
+            'editedBy' => $editedBy,
+            'recipientDepartment' => 'Human Resource',
+            'message' => 'Attendance record was ' . $action . ' by ' . $editedBy,
+            'createdAt' => Carbon::now('Asia/Manila')->toDateTimeString(),
+            'status' => 'unread',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Attendance updated successfully.',
+            'action' => $action,
+            'attendanceId' => $savedAttendanceId,
+        ]);
+    }
 }

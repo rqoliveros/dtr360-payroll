@@ -70,6 +70,10 @@ Route::prefix('payroll')
             [PayrollController::class, 'approveDocuments'])
             ->name('approval.documents');
 
+        Route::post('/edit-attendance', 
+            [PayrollController::class, 'editAttendance'])
+            ->name('edit.attendance');
+
         // Reject single Documents
         Route::post('/reject-document', 
             [PayrollController::class, 'rejectDocument'])
